@@ -1,7 +1,13 @@
 # Gov ID Check-in — Phase 1
 
-API for scanning an Omang or passport at a government building entrance, logging the visit, and
-putting appointment holders straight into the queue. Runs on mock citizen data.
+Scan an Omang or passport at a government building entrance, log the visit, queue people for service,
+and call them to desks. Runs on mock citizen data.
+
+| Page | Who | What |
+| --- | --- | --- |
+| `/station` | Entrance laptop/tablet | Scan ID (webcam or USB scanner), get a ticket, check out |
+| `/staff` | Officers, reception, admins | Live queue, **Call next** at your desk, who's inside, check people out |
+| `/screen` | TV in the waiting area | Big "Now calling" number + desk, spoken announcement, waiting counts |
 
 **Stack:** Node.js 20+ · Express · PostgreSQL · deploys to GCP Cloud Run (same as SelemoCrm).
 
@@ -39,6 +45,25 @@ What the station does:
 
 The camera needs **https or localhost**. Cloud Run gives you https automatically.
 
+## Staff dashboard and waiting-area screen
+
+**Staff:** open **http://localhost:8080/staff** and sign in with a login from `credentials.txt`.
+
+- **Officers** pick their desk, then press **Call next**. After that they press **Start serving** and then **Done**, or **Call again**, or **Didn't come**.
+  - Appointment holders are called first.
+  - A desk only calls people for its own service, unless the desk is set to "any service".
+  - Two desks can never call the same person.
+- **Reception** sees the queue and everyone inside the building, and can check people out.
+- **Admins** see both.
+
+**Waiting-area screen:** open **http://localhost:8080/screen** on the TV and paste a station key.
+
+- The number that was just called fills the screen, with a chime and a spoken "Ticket B 0 0 1, please go to Desk 1".
+- It shows ticket numbers and desks only, never names.
+
+**Live updates:** every page updates within a second of any scan, call or check-out. This uses Postgres
+LISTEN/NOTIFY plus Server-Sent Events, so it keeps working across several Cloud Run instances.
+
 ## Tests
 
 ```bash
@@ -46,7 +71,7 @@ createdb govcheckin_test
 TEST_DATABASE_URL=postgres://...@localhost/govcheckin_test npm test
 ```
 
-21 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
+32 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
 duplicate and concurrent scans, forged QR codes, appointments, tickets, checkout, close-day and the
 locked audit log.
 
@@ -83,6 +108,13 @@ curl -s localhost:8080/api/sites/1/occupancy -H 'authorization: Bearer <token>'
 | GET | /api/stations/me | Station | Check the station key, get its site |
 | GET | /api/service-types | Station, staff | Services a visitor can pick |
 | POST | /api/visits/:id/ticket | Station, front desk | Walk-in picks a service and gets a ticket (one per visit) |
+| GET | /api/sites/:id/desks | Staff | Desks and what each is serving now |
+| GET | /api/sites/:id/queue | Staff | Today's open tickets + stats (inside, waiting, served, avg wait) |
+| POST | /api/desks/:id/call-next | Officers, admins | Call the next ticket for this desk (appointments first) |
+| PATCH | /api/tickets/:id | Officers, admins | `SERVING`, `DONE` or `SKIPPED` |
+| POST | /api/tickets/:id/recall | Officers, admins | Call the same number again on the screen |
+| GET | /api/display | Station key | Waiting-area screen feed (numbers and desks only) |
+| GET | /api/sites/:id/events | Staff, station | Live change events (Server-Sent Events) |
 
 **Check-in body**
 
@@ -129,6 +161,6 @@ test/api.test.js      end-to-end tests
 
 ## Next
 
-- A staff dashboard: live occupancy over WebSockets, plus "Call next" at each desk.
-- A waiting-area screen showing called ticket numbers.
+- Online appointment booking and application tracking for citizens.
+- A daily report for site admins: visits, wait times, no-shows.
 - An Android station app that reads the passport MRZ with the camera and the chip over NFC.

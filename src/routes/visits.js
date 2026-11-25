@@ -6,6 +6,7 @@ import { audit } from '../lib/audit.js';
 import { allow, assertSiteAccess, actingSiteId, FRONT_DESK } from '../middleware/auth.js';
 import { readDocument, upsertPerson } from '../services/identity.js';
 import { issueTicket } from '../services/queue.js';
+import { notifySite } from '../events.js';
 
 export const visitsRouter = Router();
 
@@ -97,6 +98,7 @@ visitsRouter.post(
         ticket = await issueTicket(db, { siteId, serviceTypeId, visitId: visit.id });
       }
 
+      await notifySite(db, siteId, 'checkin');
       await audit(db, req, {
         action: 'CHECK_IN',
         entity: 'visits',
@@ -165,6 +167,7 @@ visitsRouter.post(
           WHERE visit_id = $1 AND status IN ('WAITING','CALLED')`,
         [visitRow.id],
       );
+      await notifySite(db, visitRow.site_id, 'checkout');
       await audit(db, req, { action: 'CHECK_OUT', entity: 'visits', entityId: visitRow.id });
       const v = closed.rows[0];
       return { visitId: Number(v.id), checkedInAt: v.checked_in_at, checkedOutAt: v.checked_out_at, minutesInside: v.minutes };

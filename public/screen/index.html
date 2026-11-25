@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Now calling</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="screen.css">
+</head>
+<body>
+  <section id="setup" class="setup" hidden>
+    <form id="setup-form" class="setup-card">
+      <h1>Set up the waiting-area screen</h1>
+      <p>Paste a station key for this site. The screen shows ticket numbers and desks only, never names.</p>
+      <input id="key" autocomplete="off" spellcheck="false" placeholder="1.xxxxxxxxxxxxxxxx" required>
+      <label class="check"><input type="checkbox" id="speak" checked> Announce numbers out loud</label>
+      <button type="submit">Start screen</button>
+      <p id="setup-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="board" class="board" hidden>
+    <header class="head">
+      <div id="site" class="site"></div>
+      <div id="clock" class="clock"></div>
+    </header>
+    <main class="main">
+      <div class="now" id="now">
+        <div class="now-label">Now calling</div>
+        <div class="now-ticket" id="now-ticket">–</div>
+        <div class="now-desk" id="now-desk">Please wait for your number</div>
+      </div>
+      <aside class="recent">
+        <div class="recent-label">Recently called</div>
+        <ol id="recent"></ol>
+      </aside>
+    </main>
+    <footer class="foot">
+      <div class="waiting" id="waiting"></div>
+      <div id="status" class="status"></div>
+    </footer>
+  </section>
+
+  <script src="/shared/live.js"></script>
+  <script src="screen.js"></script>
+</body>
+</html>

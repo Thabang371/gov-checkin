@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff dashboard</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="staff.css">
+</head>
+<body>
+  <!-- Login -->
+  <section id="login" class="login-wrap" hidden>
+    <form id="login-form" class="card login-card">
+      <h1>Staff sign in</h1>
+      <p class="muted">Gov ID Check-in</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit" class="btn primary block">Sign in</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="app" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <select id="site-select" aria-label="Site" hidden></select>
+        <div id="site-name" class="site"></div>
+        <span id="live" class="live off" title="Live updates"><span class="dot"></span><span id="live-text">Connecting</span></span>
+      </div>
+      <div class="who">
+        <span id="user-name"></span>
+        <span id="user-role" class="role"></span>
+        <button type="button" id="logout" class="btn ghost small">Sign out</button>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Inside now</div><div class="stat-value" id="s-inside">–</div></div>
+      <div class="stat"><div class="stat-label">Waiting</div><div class="stat-value" id="s-waiting">–</div></div>
+      <div class="stat"><div class="stat-label">Served today</div><div class="stat-value" id="s-served">–</div></div>
+      <div class="stat"><div class="stat-label">Average wait</div><div class="stat-value" id="s-wait">–</div></div>
+    </div>
+
+    <main class="grid">
+      <!-- Officer's desk -->
+      <section id="desk-panel" class="card panel desk-panel" hidden>
+        <div class="panel-head">
+          <h2>My desk</h2>
+          <select id="desk-select" aria-label="Desk"></select>
+        </div>
+        <div id="desk-body"></div>
+        <p id="desk-msg" class="desk-msg" role="status"></p>
+      </section>
+
+      <!-- Queue -->
+      <section class="card panel queue-panel">
+        <div class="panel-head"><h2>Queue</h2><span class="muted small" id="queue-count"></span></div>
+        <h3 class="sub">Being served</h3>
+        <table class="table">
+          <thead><tr><th>Ticket</th><th>Service</th><th>Person</th><th>Desk</th><th>Status</th></tr></thead>
+          <tbody id="serving-rows"></tbody>
+        </table>
+        <h3 class="sub">Waiting</h3>
+        <table class="table">
+          <thead><tr><th>Ticket</th><th>Service</th><th>Person</th><th class="num">Waiting</th></tr></thead>
+          <tbody id="waiting-rows"></tbody>
+        </table>
+      </section>
+
+      <!-- Who's inside (reception and admins) -->
+      <section id="inside-panel" class="card panel inside-panel" hidden>
+        <div class="panel-head"><h2>Inside the building</h2><span class="muted small" id="inside-count"></span></div>
+        <table class="table">
+          <thead><tr><th>Person</th><th>ID</th><th>Since</th><th>Ticket</th><th></th></tr></thead>
+          <tbody id="inside-rows"></tbody>
+        </table>
+      </section>
+    </main>
+  </section>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="/shared/live.js"></script>
+  <script src="staff.js"></script>
+</body>
+</html>

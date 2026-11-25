@@ -4,6 +4,7 @@ import { asyncRoute, HttpError } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { allow, assertSiteAccess, ALL_STAFF, FRONT_DESK } from '../middleware/auth.js';
 import { issueTicket } from '../services/queue.js';
+import { notifySite } from '../events.js';
 
 export const stationsRouter = Router();
 
@@ -46,6 +47,7 @@ stationsRouter.post(
       );
       if (existing.rows[0]) throw new HttpError(409, 'This visit already has a ticket in the queue');
       const t = await issueTicket(db, { siteId: v.rows[0].site_id, serviceTypeId, visitId });
+      await notifySite(db, v.rows[0].site_id, 'ticket');
       await audit(db, req, { action: 'ISSUE_TICKET', entity: 'queue_tickets', entityId: t.id, details: { visitId, ticket: t.ticketNo } });
       return t;
     });

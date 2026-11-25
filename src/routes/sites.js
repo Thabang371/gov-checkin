@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { asyncRoute, HttpError } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { allow, assertSiteAccess, ALL_STAFF, FRONT_DESK, ADMINS } from '../middleware/auth.js';
+import { notifySite } from '../events.js';
 
 export const sitesRouter = Router();
 
@@ -134,6 +135,7 @@ sitesRouter.post(
             AND (scheduled_for AT TIME ZONE $2)::date <= (now() AT TIME ZONE $2)::date`,
         [siteId, config.timezone],
       );
+      await notifySite(db, siteId, 'close-day');
       await audit(db, req, { action: 'CLOSE_DAY', entity: 'sites', entityId: siteId, details: { autoClosed: ids.length } });
       return ids.length;
     });
