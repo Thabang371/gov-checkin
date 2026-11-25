@@ -12,6 +12,8 @@
     "dev": "node --watch src/server.js",
     "db:schema": "node db/apply-schema.js",
     "db:seed": "node db/seed.js",
+    "db:migrate": "node db/migrate.js",
+    "db:demo-history": "node db/demo-history.js",
     "db:reset": "node db/apply-schema.js --drop && node db/seed.js",
     "test": "node --test --test-concurrency=1 test/*.test.js"
   },

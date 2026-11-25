@@ -13,6 +13,7 @@ import { personsRouter } from './routes/persons.js';
 import { auditRouter } from './routes/audit.js';
 import { stationsRouter } from './routes/stations.js';
 import { queueRouter } from './routes/queue.js';
+import { reportsRouter } from './routes/reports.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -36,6 +37,7 @@ export function createApp() {
   app.use('/api/audit', auditRouter);
   app.use('/api', stationsRouter); // /api/stations/me, /api/service-types, /api/visits/:id/ticket
   app.use('/api', queueRouter); // desks, queue, call-next, tickets, display, live events
+  app.use('/api', reportsRouter); // departments, visitor purpose, visitor register, daily report
 
   // Web check-in station (webcam or USB QR scanner): open /station on the entrance laptop/tablet
   app.get('/vendor/jsQR.js', (req, res) => res.sendFile(jsqrFile));

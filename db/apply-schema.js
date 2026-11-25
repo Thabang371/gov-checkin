@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pool } from '../src/db.js';
 import { config } from '../src/config.js';
+import { runMigrations } from './migrate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const drop = process.argv.includes('--drop');
@@ -22,6 +23,7 @@ try {
   }
   await client.query(sql);
   console.log('Schema applied.');
+  await runMigrations(client, console.log);
 } catch (err) {
   console.error('Schema failed:', err.message);
   process.exitCode = 1;

@@ -37,6 +37,13 @@
       </div>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-view="live" role="tab">Live</button>
+      <button type="button" class="tab" data-view="register" role="tab" id="tab-register" hidden>Visitor register</button>
+      <button type="button" class="tab" data-view="report" role="tab" id="tab-report" hidden>Daily report</button>
+    </nav>
+
+    <div id="view-live">
     <div class="stats">
       <div class="stat"><div class="stat-label">Inside now</div><div class="stat-value" id="s-inside">–</div></div>
       <div class="stat"><div class="stat-label">Waiting</div><div class="stat-value" id="s-waiting">–</div></div>
@@ -79,11 +86,77 @@
         </table>
       </section>
     </main>
+    </div>
+
+    <!-- Visitor register: replaces the paper sign-in book -->
+    <div id="view-register" class="view" hidden>
+      <div class="view-head">
+        <div>
+          <h2>Visitor register</h2>
+          <p class="muted small" id="reg-summary"></p>
+        </div>
+        <div class="controls">
+          <input type="search" id="reg-search" placeholder="Search name or last 4 digits" aria-label="Search">
+          <input type="date" id="reg-date" aria-label="Date">
+          <button type="button" class="btn" id="reg-csv">Download CSV</button>
+        </div>
+      </div>
+      <section class="card panel">
+        <table class="table">
+          <thead><tr><th>In</th><th>Out</th><th>Person</th><th>ID</th><th>Reason for visit</th><th>Ticket</th><th class="num">Minutes</th></tr></thead>
+          <tbody id="reg-rows"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Daily report (admins) -->
+    <div id="view-report" class="view" hidden>
+      <div class="view-head">
+        <div>
+          <h2>Daily report</h2>
+          <p class="muted small" id="rep-subtitle"></p>
+        </div>
+        <div class="controls">
+          <input type="date" id="rep-date" aria-label="Report date">
+          <button type="button" class="btn" id="rep-print">Print</button>
+        </div>
+      </div>
+      <div class="stats report-stats" id="rep-kpis"></div>
+      <div class="report-grid">
+        <section class="card panel chart-panel">
+          <div class="panel-head"><h2>Check-ins by hour</h2><span class="muted small" id="rep-peak"></span></div>
+          <div class="chart" id="chart-hours"></div>
+        </section>
+        <section class="card panel chart-panel">
+          <div class="panel-head"><h2>Visits per day, last 14 days</h2></div>
+          <div class="chart" id="chart-trend"></div>
+        </section>
+        <section class="card panel chart-panel">
+          <div class="panel-head"><h2>Average wait per day (minutes)</h2></div>
+          <div class="chart" id="chart-wait"></div>
+        </section>
+        <section class="card panel">
+          <div class="panel-head"><h2>Appointments</h2></div>
+          <div id="rep-appts"></div>
+          <div class="panel-head spaced"><h2>Walk-in visitors by office</h2></div>
+          <div id="rep-depts"></div>
+        </section>
+        <section class="card panel wide">
+          <div class="panel-head"><h2>By service</h2></div>
+          <table class="table">
+            <thead><tr><th>Service</th><th class="num">Tickets</th><th class="num">Served</th><th class="num">Didn't come</th><th class="num">Avg wait</th><th class="num">Longest wait</th><th class="num">Avg time at desk</th></tr></thead>
+            <tbody id="rep-services"></tbody>
+          </table>
+        </section>
+      </div>
+    </div>
   </section>
+  <div id="tooltip" class="tooltip" hidden></div>
 
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="/shared/live.js"></script>
   <script src="staff.js"></script>
+  <script src="reports.js"></script>
 </body>
 </html>

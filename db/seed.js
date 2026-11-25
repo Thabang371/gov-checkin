@@ -106,7 +106,7 @@ function makeCitizens(rand) {
  * Seeds the database. Returns everything tests or demos need (station keys, citizens, staff logins).
  * Expects an empty database with the schema applied.
  */
-export async function seed({ password = process.env.SEED_PASSWORD, outDir = path.join(here, '..', 'seed-output'), writeFiles = true } = {}) {
+export async function seed({ password = process.env.SEED_PASSWORD, outDir = path.join(here, '..', 'seed-output'), writeFiles = true, history = false } = {}) {
   if (config.isProduction) throw new Error('Refusing to seed demo data when NODE_ENV=production');
   const staffPassword = password || crypto.randomBytes(9).toString('base64url');
   const rand = rng(20261125);
@@ -123,6 +123,14 @@ export async function seed({ password = process.env.SEED_PASSWORD, outDir = path
         [s.name, s.district, s.address, s.max],
       );
       siteIds.push(r.rows[0].id);
+    }
+
+    // Offices a walk-in visitor can say they are going to
+    const DEPARTMENTS = ['Civil registration office', 'Immigration office', 'District Commissioner', 'Human resources', 'Accounts'];
+    for (const siteId of siteIds) {
+      for (const name of DEPARTMENTS) {
+        await db.query('INSERT INTO departments (site_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING', [siteId, name]);
+      }
     }
 
     const serviceIds = {};
@@ -217,6 +225,10 @@ export async function seed({ password = process.env.SEED_PASSWORD, outDir = path
   });
 
   const out = { ...result, staffPassword, citizens };
+  if (history) {
+    const { addDemoHistory } = await import('./demo-history.js');
+    out.history = await addDemoHistory({ siteId: result.siteIds[0], days: 14 });
+  }
   if (writeFiles) await writeOutputs(out, outDir);
   return out;
 }
@@ -277,8 +289,9 @@ h1{font-size:18px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minm
 // Run directly: node db/seed.js
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const out = await seed();
+    const out = await seed({ history: true });
     console.log(`Seeded ${out.siteIds.length} sites, ${out.staff.length} staff, ${out.citizens.length} citizens.`);
+    if (out.history) console.log(`Added ${out.history.visits} demo visits over the last ${out.history.days} days for the report.`);
     console.log('Logins, station keys and the QR card sheet are in seed-output/');
   } catch (err) {
     console.error('Seed failed:', err.message);

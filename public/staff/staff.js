@@ -128,6 +128,10 @@
     $('inside-panel').hidden = !canSeeInside;
     document.querySelector('.grid').classList.toggle('no-desk', !canServe);
 
+    $('tab-register').hidden = !canSeeInside;
+    $('tab-report').hidden = !['SITE_ADMIN', 'NATIONAL_ADMIN'].includes(u.role);
+    showView('live');
+
     $('login').hidden = true;
     $('app').hidden = false;
     await switchSite();
@@ -146,6 +150,7 @@
       setLive,
     );
     await refresh();
+    if (state.view && state.view !== 'live' && window.staffViews) window.staffViews.show(state.view);
   }
 
   function setLive(status) {
@@ -159,7 +164,10 @@
     if (evt.type === 'checkin' && state.queue) state.flashNext = true;
     // Many events can arrive together (a busy morning); refresh at most every 300 ms
     clearTimeout(state.refreshTimer);
-    state.refreshTimer = setTimeout(refresh, 300);
+    state.refreshTimer = setTimeout(() => {
+      refresh();
+      if (state.view === 'register' && window.staffViews) window.staffViews.show('register', { quiet: true });
+    }, 300);
   }
 
   // ---------- data ----------
@@ -330,6 +338,20 @@
       toast(err.message);
     }
   }
+
+  // ---------- tabs ----------
+  function showView(name) {
+    state.view = name;
+    for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.dataset.view === name);
+    $('view-live').hidden = name !== 'live';
+    $('view-register').hidden = name !== 'register';
+    $('view-report').hidden = name !== 'report';
+    if (name !== 'live' && window.staffViews) window.staffViews.show(name);
+  }
+  for (const t of document.querySelectorAll('.tab')) t.addEventListener('click', () => showView(t.dataset.view));
+
+  // Shared with reports.js
+  window.staffApp = { api, h, toast, state, idText, time, $ };
 
   // ---------- boot ----------
   const saved = session.get('govcheckin.token');

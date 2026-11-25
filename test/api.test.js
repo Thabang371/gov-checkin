@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { pool } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { seed } from '../db/seed.js';
+import { resetDb } from './reset-db.js';
 import { encodeIdQr } from '../src/lib/idqr.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -31,8 +32,7 @@ async function login(email) {
 const qrBody = (c) => ({ method: 'QR', qr: c.qr });
 
 before(async () => {
-  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-  await pool.query(fs.readFileSync(path.join(here, '..', 'db', 'schema.sql'), 'utf8'));
+  await resetDb();
   data = await seed({ password: PASSWORD, writeFiles: false });
   server = createApp().listen(0);
   base = `http://127.0.0.1:${server.address().port}`;

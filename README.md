@@ -6,7 +6,7 @@ and call them to desks. Runs on mock citizen data.
 | Page | Who | What |
 | --- | --- | --- |
 | `/station` | Entrance laptop/tablet | Scan ID (webcam or USB scanner), get a ticket, check out |
-| `/staff` | Officers, reception, admins | Live queue, **Call next** at your desk, who's inside, check people out |
+| `/staff` | Officers, reception, admins | Live queue, **Call next**, who's inside, **visitor register** (CSV), **daily report** |
 | `/screen` | TV in the waiting area | Big "Now calling" number + desk, spoken announcement, waiting counts |
 
 **Stack:** Node.js 20+ · Express · PostgreSQL · deploys to GCP Cloud Run (same as SelemoCrm).
@@ -64,6 +64,39 @@ The camera needs **https or localhost**. Cloud Run gives you https automatically
 **Live updates:** every page updates within a second of any scan, call or check-out. This uses Postgres
 LISTEN/NOTIFY plus Server-Sent Events, so it keeps working across several Cloud Run instances.
 
+## Walk-in visitors and the visitor register
+
+Not everyone queues for a service. Someone coming to see an office or a person scans their ID and taps
+**"I'm visiting an office or a person"**, then picks the office. Their name, ID (last 4 digits), office and
+time in and out are logged automatically, with no paper book and no handwriting.
+
+- **Visitor register tab** (`/staff`): everyone who came in on a day, with the reason, ticket and time inside.
+  You can search it and **download it as CSV** for Excel.
+  - Reception can see today only. Admins can pick any date.
+  - Every view and every download is written to the audit log.
+- **Daily report tab** (admins), for any date:
+  - visits, served, average wait, and the 90th-percentile wait
+  - check-ins by hour, with the busiest hour marked
+  - a 14-day trend of visits and average wait
+  - appointment no-shows
+  - visitors by office
+  - a breakdown by service, including longest waits
+
+  It prints cleanly from the browser.
+
+**Demo data for the report:** `npm run db:reset` now also fills the last 14 days at site 1 with realistic
+made-up visits. To add the same history to an existing database, run `npm run db:demo-history`.
+
+## Updating an existing database
+
+New tables are added by migrations in `db/migrations/`. After pulling new code, run:
+
+```bash
+npm run db:migrate
+```
+
+It applies only what's new and is safe to run any number of times.
+
 ## Tests
 
 ```bash
@@ -71,7 +104,7 @@ createdb govcheckin_test
 TEST_DATABASE_URL=postgres://...@localhost/govcheckin_test npm test
 ```
 
-32 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
+40 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
 duplicate and concurrent scans, forged QR codes, appointments, tickets, checkout, close-day and the
 locked audit log.
 
@@ -115,6 +148,10 @@ curl -s localhost:8080/api/sites/1/occupancy -H 'authorization: Bearer <token>'
 | POST | /api/tickets/:id/recall | Officers, admins | Call the same number again on the screen |
 | GET | /api/display | Station key | Waiting-area screen feed (numbers and desks only) |
 | GET | /api/sites/:id/events | Staff, station | Live change events (Server-Sent Events) |
+| GET | /api/sites/:id/departments | Station, staff | Offices a walk-in visitor can choose |
+| POST | /api/visits/:id/purpose | Station, front desk | `{ departmentId, hostName? }`: visiting an office, no ticket |
+| GET | /api/sites/:id/register?date=&format=csv | Front desk (today), admins (any day) | Visitor register, JSON or CSV |
+| GET | /api/sites/:id/report?date= | Admins | Daily report |
 
 **Check-in body**
 
@@ -162,5 +199,5 @@ test/api.test.js      end-to-end tests
 ## Next
 
 - Online appointment booking and application tracking for citizens.
-- A daily report for site admins: visits, wait times, no-shows.
+- Admin screens to manage desks, offices and staff accounts.
 - An Android station app that reads the passport MRZ with the camera and the chip over NFC.

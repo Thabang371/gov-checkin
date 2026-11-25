@@ -10,7 +10,7 @@
   const SCAN_EVERY_MS = 120;
 
   const $ = (id) => document.getElementById(id);
-  const state = { key: null, mode: 'in', busy: false, lastCode: '', lastAt: 0, lastScanAt: 0, services: null, timer: null };
+  const state = { key: null, mode: 'in', busy: false, lastCode: '', lastAt: 0, lastScanAt: 0, services: null, departments: null, timer: null };
 
   // ---------- storage (can be unavailable in some browsers) ----------
   const store = {
@@ -50,6 +50,7 @@
     show('scan');
     startCamera();
     api('/api/service-types').then((s) => { state.services = s; }).catch(() => {});
+    api(`/api/sites/${me.siteId}/departments`).then((d) => { state.departments = d; }).catch(() => {});
   }
 
   $('setup-form').addEventListener('submit', async (e) => {
@@ -218,6 +219,7 @@
     list.replaceChildren(...warnings.map((w) => Object.assign(document.createElement('li'), { textContent: w })));
 
     $('services').hidden = !pickService;
+    $('departments').hidden = true;
     if (pickService) renderServices(pickService);
 
     $('result').hidden = false;
@@ -248,6 +250,38 @@
       box.append(b);
     }
     if (!box.children.length) box.append(Object.assign(document.createElement('p'), { textContent: 'Please go to reception.' }));
+    $('visiting').hidden = !(state.departments && state.departments.length);
+    $('visiting').onclick = () => showDepartments(visitId);
+  }
+
+  // Walk-in visitor: no ticket, just say which office. Name and ID were already logged by the scan.
+  function showDepartments(visitId) {
+    $('services').hidden = true;
+    $('departments').hidden = false;
+    const box = $('department-list');
+    box.replaceChildren(...state.departments.map((d) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = d.name;
+      b.addEventListener('click', () => pickDepartment(visitId, d, box));
+      return b;
+    }));
+    $('back-to-services').onclick = () => { $('departments').hidden = true; $('services').hidden = false; };
+    startCountdown(SERVICE_PICK_MS);
+  }
+
+  async function pickDepartment(visitId, dept, box) {
+    for (const b of box.querySelectorAll('button')) b.disabled = true;
+    try {
+      await api(`/api/visits/${visitId}/purpose`, { method: 'POST', body: { departmentId: dept.id } });
+      $('departments').hidden = true;
+      $('result-sub').textContent = `You're signed in. Please go to ${dept.name}. Scan out when you leave.`;
+      beep(true);
+      startCountdown(RESULT_MS);
+    } catch (err) {
+      $('result-sub').textContent = err.message;
+      for (const b of box.querySelectorAll('button')) b.disabled = false;
+    }
   }
 
   async function pickService(visitId, serviceTypeId, box) {

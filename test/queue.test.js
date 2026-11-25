@@ -8,6 +8,7 @@ import { pool } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { closeEvents } from '../src/events.js';
 import { seed } from '../db/seed.js';
+import { resetDb } from './reset-db.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PASSWORD = 'Test-Password-1';
@@ -63,8 +64,7 @@ function nextChange(url, headers, ms = 3000) {
 }
 
 before(async () => {
-  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-  await pool.query(fs.readFileSync(path.join(here, '..', 'db', 'schema.sql'), 'utf8'));
+  await resetDb();
   data = await seed({ password: PASSWORD, writeFiles: false });
   server = createApp().listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
