@@ -23,7 +23,16 @@ const jsqrFile = require.resolve('jsqr/dist/jsQR.js');
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1); // Cloud Run sits behind one proxy; needed for real client IPs
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        // "Upgrade to https" only in production (Cloud Run has https). On a local network over plain http
+        // it would make phones fetch the page's CSS and JS over https and fail.
+        upgradeInsecureRequests: config.isProduction ? [] : null,
+      },
+    },
+    strictTransportSecurity: config.isProduction,
+  }));
   app.use(express.json({ limit: '32kb' }));
 
   app.get('/healthz', async (req, res) => {
