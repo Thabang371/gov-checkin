@@ -175,7 +175,7 @@
       }
       beep(false);
       const friendly = {
-        422: 'That QR code is not a valid ID. Please see reception.',
+        422: `That QR code is not a valid ID (${err.message}). Please see reception.`,
         404: state.mode === 'out' ? 'You are not checked in here.' : 'Not found. Please see reception.',
       };
       showResult({ tone: 'bad', icon: '!', title: 'Could not scan', sub: friendly[err.status] || err.message });
