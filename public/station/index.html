@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check-in station</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="station.css">
+</head>
+<body>
+  <!-- One-time setup: paste the station key from seed-output/credentials.txt -->
+  <section id="setup" class="screen" hidden>
+    <div class="card setup-card">
+      <h1>Set up this check-in station</h1>
+      <p class="muted">Paste the station key an administrator gave you. It is saved on this device only.</p>
+      <form id="setup-form">
+        <label for="station-key">Station key</label>
+        <input id="station-key" autocomplete="off" spellcheck="false" placeholder="1.xxxxxxxxxxxxxxxx" required>
+        <button type="submit" class="btn primary">Connect</button>
+        <p id="setup-error" class="error" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Main scanning screen -->
+  <section id="scan" class="screen" hidden>
+    <header class="topbar">
+      <div>
+        <div id="site-name" class="site">Site</div>
+        <div id="station-name" class="muted small">Station</div>
+      </div>
+      <div class="mode" role="radiogroup" aria-label="Mode">
+        <button type="button" id="mode-in" class="mode-btn active" role="radio" aria-checked="true">Check in</button>
+        <button type="button" id="mode-out" class="mode-btn" role="radio" aria-checked="false">Check out</button>
+      </div>
+    </header>
+
+    <main class="scan-main">
+      <div class="viewer">
+        <video id="video" playsinline muted></video>
+        <div class="frame" aria-hidden="true"></div>
+        <div id="camera-off" class="camera-off" hidden>
+          <p><strong>Camera not available</strong></p>
+          <p class="muted small" id="camera-reason"></p>
+          <p class="muted small">A USB QR scanner still works: just scan.</p>
+        </div>
+      </div>
+      <p id="hint" class="hint">Hold the QR code on your ID up to the camera</p>
+    </main>
+
+    <footer class="footer muted small">
+      <span>Your ID is checked and logged for building security. Only the last 4 digits are stored.</span>
+      <button type="button" id="reset-station" class="link">Station settings</button>
+    </footer>
+  </section>
+
+  <!-- Result overlay -->
+  <section id="result" class="overlay" hidden aria-live="assertive">
+    <div class="card result-card" id="result-card">
+      <div id="result-icon" class="result-icon" aria-hidden="true"></div>
+      <h2 id="result-title"></h2>
+      <p id="result-sub" class="muted"></p>
+      <div id="ticket" class="ticket" hidden>
+        <div class="ticket-label">Your number</div>
+        <div id="ticket-no" class="ticket-no"></div>
+        <div id="ticket-meta" class="muted"></div>
+      </div>
+      <div id="services" class="services" hidden>
+        <p class="services-q">What are you here for today?</p>
+        <div id="service-list" class="service-list"></div>
+      </div>
+      <ul id="warnings" class="warnings"></ul>
+      <button type="button" id="done" class="btn">Done</button>
+      <div class="countdown"><div id="countdown-bar"></div></div>
+    </div>
+  </section>
+
+  <canvas id="canvas" hidden></canvas>
+  <script src="/vendor/jsQR.js"></script>
+  <script src="station.js"></script>
+</body>
+</html>

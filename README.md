@@ -23,6 +23,22 @@ npm run dev                 # http://localhost:8080/healthz
 | `qr-cards.html` | 200 printable mock ID cards with QR codes. Open in a browser and print, or scan from the screen |
 | `citizens.csv` | The same people as data (ID numbers, appointments) |
 
+## Web check-in station (webcam or USB scanner)
+
+1. Run the server, then open **http://localhost:8080/station/** on the entrance laptop or tablet.
+2. Paste a station key from `seed-output/credentials.txt`. It's saved on that device, so you only do this once.
+3. Hold up a QR card from `qr-cards.html`. A printed card or a phone screen both work.
+
+What the station does:
+
+- **Check in:** the visitor gets a welcome, then either a priority ticket (if they have an appointment) or a list of services to pick from, which gives them a ticket number.
+- **Check out:** flip to "Check out" and scan again on the way out.
+- **Repeat scans:** holding the same code up again doesn't create a duplicate.
+- **USB scanners:** a plug-in QR scanner that types like a keyboard also works.
+- **Privacy on screen:** only the first name and surname initial are shown, for example "Kagiso M.".
+
+The camera needs **https or localhost**. Cloud Run gives you https automatically.
+
 ## Tests
 
 ```bash
@@ -30,7 +46,7 @@ createdb govcheckin_test
 TEST_DATABASE_URL=postgres://...@localhost/govcheckin_test npm test
 ```
 
-19 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
+21 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
 duplicate and concurrent scans, forged QR codes, appointments, tickets, checkout, close-day and the
 locked audit log.
 
@@ -64,6 +80,9 @@ curl -s localhost:8080/api/sites/1/occupancy -H 'authorization: Bearer <token>'
 | POST | /api/sites/:id/close-day | Admins | Check out everyone left, mark missed appointments as NO_SHOW |
 | GET | /api/persons/lookup?type=&number= | Front desk | Find a person by ID (audited, found or not) |
 | GET | /api/audit | National admin | Read the audit log |
+| GET | /api/stations/me | Station | Check the station key, get its site |
+| GET | /api/service-types | Station, staff | Services a visitor can pick |
+| POST | /api/visits/:id/ticket | Station, front desk | Walk-in picks a service and gets a ticket (one per visit) |
 
 **Check-in body**
 
@@ -108,8 +127,8 @@ src/lib/              ID hashing, QR signing, audit helper
 test/api.test.js      end-to-end tests
 ```
 
-## Next (Phase 2)
+## Next
 
-- A web check-in page that scans QR codes with a webcam.
-- An Android station app that reads the MRZ with the camera and the passport chip over NFC.
-- A live occupancy dashboard over WebSockets.
+- A staff dashboard: live occupancy over WebSockets, plus "Call next" at each desk.
+- A waiting-area screen showing called ticket numbers.
+- An Android station app that reads the passport MRZ with the camera and the chip over NFC.

@@ -238,3 +238,34 @@ test('a QR signed with a different secret is rejected', async () => {
   const r = await call('POST', '/api/checkins', { station: data.stations[0].key, body: { method: 'QR', qr: bad } });
   assert.equal(r.status, 422);
 });
+
+test('station page, jsQR library and station endpoints work', async () => {
+  const page = await fetch(`${base}/station/`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Check-in station/);
+  const csp = page.headers.get('content-security-policy');
+  assert.match(csp, /script-src 'self'/); // no inline or third-party scripts
+  const lib = await fetch(`${base}/vendor/jsQR.js`);
+  assert.equal(lib.status, 200);
+  assert.match(await lib.text(), /jsQR/);
+
+  const me = await call('GET', '/api/stations/me', { station: data.stations[0].key });
+  assert.equal(me.status, 200);
+  assert.equal(me.body.siteId, data.siteIds[0]);
+  const svc = await call('GET', '/api/service-types', { station: data.stations[0].key });
+  assert.equal(svc.body.length, 6);
+});
+
+test('walk-in picks a service after scanning and gets one ticket only', async () => {
+  const station = data.stations[0].key;
+  const r = await call('POST', '/api/checkins', { station, body: qrBody(data.citizens[120]) });
+  assert.equal(r.body.needsService, true);
+  const t = await call('POST', `/api/visits/${r.body.visit.id}/ticket`, { station, body: { serviceTypeId: data.serviceIds.PASSPORT_NEW } });
+  assert.equal(t.status, 201, JSON.stringify(t.body));
+  assert.match(t.body.ticketNo, /^C\d{3}$/);
+  const twice = await call('POST', `/api/visits/${r.body.visit.id}/ticket`, { station, body: { serviceTypeId: data.serviceIds.PASSPORT_NEW } });
+  assert.equal(twice.status, 409);
+  // A station at another site cannot touch this visit
+  const other = await call('POST', `/api/visits/${r.body.visit.id}/ticket`, { station: data.stations[1].key, body: { serviceTypeId: data.serviceIds.ENQUIRY } });
+  assert.equal(other.status, 403);
+});

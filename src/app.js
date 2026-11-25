@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import express from 'express';
 import helmet from 'helmet';
 import { pool } from './db.js';
@@ -8,6 +11,11 @@ import { visitsRouter } from './routes/visits.js';
 import { sitesRouter } from './routes/sites.js';
 import { personsRouter } from './routes/persons.js';
 import { auditRouter } from './routes/audit.js';
+import { stationsRouter } from './routes/stations.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const jsqrFile = require.resolve('jsqr/dist/jsQR.js');
 
 export function createApp() {
   const app = express();
@@ -25,6 +33,12 @@ export function createApp() {
   app.use('/api/sites', sitesRouter);
   app.use('/api/persons', personsRouter);
   app.use('/api/audit', auditRouter);
+  app.use('/api', stationsRouter); // /api/stations/me, /api/service-types, /api/visits/:id/ticket
+
+  // Web check-in station (webcam or USB QR scanner): open /station on the entrance laptop/tablet
+  app.get('/vendor/jsQR.js', (req, res) => res.sendFile(jsqrFile));
+  app.use('/station', express.static(path.join(here, '..', 'public', 'station')));
+  app.get('/', (req, res) => res.redirect('/station/'));
 
   app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
