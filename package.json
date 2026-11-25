@@ -1,0 +1,28 @@
+{
+  "name": "gov-checkin",
+  "version": "0.1.0",
+  "description": "Government building ID check-in and queue system (MVP, Phase 1)",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:schema": "node db/apply-schema.js",
+    "db:seed": "node db/seed.js",
+    "db:reset": "node db/apply-schema.js --drop && node db/seed.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "qrcode": "^1.5.4"
+  }
+}
