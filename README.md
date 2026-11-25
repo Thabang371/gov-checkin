@@ -8,6 +8,7 @@ and call them to desks. Runs on mock citizen data.
 | `/station` | Entrance laptop/tablet | Scan ID (webcam or USB scanner), get a ticket, check out |
 | `/staff` | Officers, reception, admins | Live queue, **Call next**, who's inside, **visitor register** (CSV), **daily report** |
 | `/screen` | TV in the waiting area | Big "Now calling" number + desk, spoken announcement, waiting counts |
+| `/book` | Citizens, on their phone | Confirm ID, book / view / cancel an appointment, get a booking reference |
 
 **Stack:** Node.js 20+ · Express · PostgreSQL · deploys to GCP Cloud Run (same as SelemoCrm).
 
@@ -87,6 +88,37 @@ time in and out are logged automatically, with no paper book and no handwriting.
 **Demo data for the report:** `npm run db:reset` now also fills the last 14 days at site 1 with realistic
 made-up visits. To add the same history to an existing database, run `npm run db:demo-history`.
 
+## Online booking for citizens
+
+Citizens open **http://localhost:8080/book** on their phone:
+
+1. **Confirm who they are:** they enter their Omang or passport number and date of birth. These are checked
+   against the mock register.
+   - Wrong details always get the same message, so nobody can find out which part was wrong.
+   - After 10 attempts in 15 minutes they have to wait.
+2. **See their upcoming bookings**, and cancel any of them.
+3. **Book:** they choose the office and service, then a day in the next 2 weeks, then a free 20-minute slot.
+   - Opening hours are Mon–Fri 08:00–16:00 and Sat 08:00–12:00.
+   - Each slot fits **2 people per service** (change `service_types.slot_capacity`).
+   - Each person can have at most 2 upcoming bookings, and one per service.
+   - General enquiries are walk-in only.
+4. They get a **booking reference** like `APT-4VJ3U9`. On the day they scan their ID at the entrance and get a
+   priority ticket automatically.
+
+Citizen sessions use a separate, 30-minute token signed with a different key, so they can never open staff
+pages. Every check, booking and cancellation is in the audit log.
+
+> Demo only: a real system would confirm identity with a one-time SMS code sent to the phone number on the
+> national register, not just ID + date of birth.
+
+**Reception can fill in a missing reason.** When someone scans in but walks off without choosing, reception
+opens the Visitor register and clicks **Add reason** on their row. They can queue the person for a service,
+which gives them a ticket, or log the office they're visiting. The register and the Excel file record who
+added it.
+
+**Excel download:** the register's **Download Excel** button gives a ready-to-print `.xlsx`. It has a title and
+date, a frozen header row, filters, set column widths and landscape print setup.
+
 ## Updating an existing database
 
 New tables are added by migrations in `db/migrations/`. After pulling new code, run:
@@ -95,7 +127,8 @@ New tables are added by migrations in `db/migrations/`. After pulling new code, 
 npm run db:migrate
 ```
 
-It applies only what's new and is safe to run any number of times.
+It applies only what's new and is safe to run any number of times. After pulling new code, also run
+`npm install`, because new packages may have been added.
 
 ## Tests
 
@@ -104,7 +137,7 @@ createdb govcheckin_test
 TEST_DATABASE_URL=postgres://...@localhost/govcheckin_test npm test
 ```
 
-40 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
+49 end-to-end tests run against a real Postgres database. They cover login, roles, QR and MRZ check-in,
 duplicate and concurrent scans, forged QR codes, appointments, tickets, checkout, close-day and the
 locked audit log.
 
@@ -152,6 +185,12 @@ curl -s localhost:8080/api/sites/1/occupancy -H 'authorization: Bearer <token>'
 | POST | /api/visits/:id/purpose | Station, front desk | `{ departmentId, hostName? }`: visiting an office, no ticket |
 | GET | /api/sites/:id/register?date=&format=csv | Front desk (today), admins (any day) | Visitor register, JSON or CSV |
 | GET | /api/sites/:id/report?date= | Admins | Daily report |
+| GET | /api/sites/:id/register?format=xlsx | Front desk, admins | Visitor register as Excel |
+| GET | /api/public/options | Anyone | Offices, bookable services, bookable days |
+| POST | /api/public/verify | Anyone (rate limited) | `{ idType, idNumber, dateOfBirth }` → citizen token |
+| GET | /api/public/slots?siteId=&serviceTypeId=&date= | Citizen | Free times for a day |
+| GET / POST | /api/public/bookings | Citizen | My upcoming bookings / book a slot |
+| DELETE | /api/public/bookings/:ref | Citizen | Cancel my booking |
 
 **Check-in body**
 
@@ -198,6 +237,7 @@ test/api.test.js      end-to-end tests
 
 ## Next
 
-- Online appointment booking and application tracking for citizens.
+- SMS one-time codes for citizen sign-in, plus booking confirmations and reminders by SMS.
+- Application tracking for citizens ("Where is my passport?").
 - Admin screens to manage desks, offices and staff accounts.
 - An Android station app that reads the passport MRZ with the camera and the chip over NFC.

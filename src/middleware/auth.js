@@ -7,7 +7,29 @@ import { HttpError } from '../lib/errors.js';
 export function signStaffToken(user) {
   return jwt.sign({ sub: user.id, role: user.role, siteId: user.site_id }, config.jwtSecret, {
     expiresIn: config.tokenTtl,
+    audience: 'staff',
   });
+}
+
+// Citizens get a separate, short-lived token signed with a different key,
+// so a citizen token can never be mistaken for a staff login (or the other way round).
+const citizenKey = crypto.createHmac('sha256', config.jwtSecret).update('citizen-token-key').digest();
+
+export function signCitizenToken(personId) {
+  return jwt.sign({ sub: personId }, citizenKey, { expiresIn: '30m', audience: 'citizen' });
+}
+
+/** Requires "Authorization: Bearer <citizen token>"; sets req.citizen = { personId }. */
+export function requireCitizen(req, res, next) {
+  const [scheme, token] = (req.get('authorization') || '').split(' ');
+  if (scheme !== 'Bearer' || !token) return next(new HttpError(401, 'Please confirm your ID first'));
+  try {
+    const claims = jwt.verify(token, citizenKey, { audience: 'citizen' });
+    req.citizen = { personId: Number(claims.sub) };
+    next();
+  } catch {
+    next(new HttpError(401, 'Your session has ended. Please confirm your ID again.'));
+  }
 }
 
 /** Reads "Authorization: Bearer <jwt>" and loads the staff user (must still be active). */
@@ -17,7 +39,7 @@ async function loadStaff(req) {
   if (scheme !== 'Bearer' || !token) return null;
   let claims;
   try {
-    claims = jwt.verify(token, config.jwtSecret);
+    claims = jwt.verify(token, config.jwtSecret, { audience: 'staff' });
   } catch {
     throw new HttpError(401, 'Session expired or invalid, please log in again');
   }

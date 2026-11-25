@@ -98,7 +98,8 @@
         <div class="controls">
           <input type="search" id="reg-search" placeholder="Search name or last 4 digits" aria-label="Search">
           <input type="date" id="reg-date" aria-label="Date">
-          <button type="button" class="btn" id="reg-csv">Download CSV</button>
+          <button type="button" class="btn primary" id="reg-xlsx">Download Excel</button>
+          <button type="button" class="btn" id="reg-csv">CSV</button>
         </div>
       </div>
       <section class="card panel">
@@ -152,6 +153,22 @@
     </div>
   </section>
   <div id="tooltip" class="tooltip" hidden></div>
+
+  <!-- Reception fills in a missing reason for someone still inside -->
+  <div id="reason-dialog" class="dialog-backdrop" hidden>
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="reason-title">
+      <h2 id="reason-title">Add reason</h2>
+      <p class="muted small" id="reason-who"></p>
+      <h3 class="sub">Queue for a service (gives them a ticket)</h3>
+      <div class="choice-grid" id="reason-services"></div>
+      <h3 class="sub">Or visiting an office (no ticket)</h3>
+      <div class="choice-grid" id="reason-offices"></div>
+      <label for="reason-host" class="small">Person they're visiting (optional, for offices)</label>
+      <input id="reason-host" maxlength="80" placeholder="e.g. Ms Kgosana">
+      <p id="reason-error" class="error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="btn" id="reason-cancel">Cancel</button></div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" hidden></div>
 

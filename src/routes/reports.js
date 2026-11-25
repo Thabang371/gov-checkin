@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import ExcelJS from 'exceljs';
 import { pool, withTransaction } from '../db.js';
 import { config } from '../config.js';
 import { asyncRoute, HttpError } from '../lib/errors.js';
@@ -59,8 +60,8 @@ reportsRouter.post(
       const busy = await db.query(`SELECT 1 FROM queue_tickets WHERE visit_id = $1 AND status IN ('WAITING','CALLED','SERVING')`, [visitId]);
       if (busy.rows[0]) throw new HttpError(409, 'This visit is already in the service queue');
       await db.query(
-        `UPDATE visits SET department_id = $2, host_name = $3, purpose = 'Visiting an office' WHERE id = $1`,
-        [visitId, departmentId, hostName],
+        `UPDATE visits SET department_id = $2, host_name = $3, purpose = 'Visiting an office', reason_added_by = $4 WHERE id = $1`,
+        [visitId, departmentId, hostName, req.staff?.id ?? null],
       );
       await notifySite(db, siteId, 'visitor');
       await audit(db, req, { action: 'VISIT_PURPOSE', entity: 'visits', entityId: visitId, details: { department: dep.rows[0].name } });
@@ -75,12 +76,14 @@ reportsRouter.post(
 async function registerRows(siteId, date) {
   const { rows } = await pool.query(
     `SELECT v.id, v.checked_in_at, v.checked_out_at, v.method, v.auto_closed, v.host_name, v.purpose,
+            v.reason_added_by, ra.full_name AS reason_added_by_name,
             p.full_name, p.id_type, p.id_last4, p.nationality,
             dep.name AS department, q.ticket_no, q.status AS ticket_status, st.name AS service,
             round(extract(epoch FROM coalesce(v.checked_out_at, now()) - v.checked_in_at) / 60)::int AS minutes
        FROM visits v
        JOIN persons p ON p.id = v.person_id
        LEFT JOIN departments dep ON dep.id = v.department_id
+       LEFT JOIN staff_users ra ON ra.id = v.reason_added_by
        LEFT JOIN LATERAL (SELECT * FROM queue_tickets q WHERE q.visit_id = v.id ORDER BY q.id DESC LIMIT 1) q ON true
        LEFT JOIN service_types st ON st.id = q.service_type_id
       WHERE v.site_id = $1 AND (v.checked_in_at AT TIME ZONE $3)::date = $2::date
@@ -103,6 +106,7 @@ async function registerRows(siteId, date) {
     kind: r.service ? 'service' : r.department ? 'visitor' : 'unknown',
     ticketNo: r.ticket_no,
     ticketStatus: r.ticket_status,
+    reasonAddedBy: r.reason_added_by_name || null,
   }));
 }
 
@@ -122,7 +126,72 @@ function toCsv(rows, timezone) {
   return [header.join(','), ...lines].join('\r\n');
 }
 
-// GET /api/sites/:id/register?date=YYYY-MM-DD[&format=csv] — reception: today; admins: any day
+async function toXlsx(rows, { siteName, date, timezone }) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Gov ID Check-in';
+  wb.created = new Date();
+  const ws = wb.addWorksheet('Visitor register', {
+    views: [{ state: 'frozen', ySplit: 4 }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
+    headerFooter: { oddFooter: '&LGov ID Check-in visitor register&RPage &P of &N' },
+  });
+  const cols = [
+    { header: 'Time in', key: 'in', width: 9 },
+    { header: 'Time out', key: 'out', width: 9 },
+    { header: 'Minutes inside', key: 'mins', width: 9 },
+    { header: 'Name', key: 'name', width: 26 },
+    { header: 'ID type', key: 'idType', width: 11 },
+    { header: 'ID last 4', key: 'last4', width: 9 },
+    { header: 'Nationality', key: 'nat', width: 11 },
+    { header: 'Reason for visit', key: 'reason', width: 38 },
+    { header: 'Ticket', key: 'ticket', width: 8 },
+    { header: 'Ticket status', key: 'status', width: 12 },
+    { header: 'Scanned by', key: 'method', width: 10 },
+    { header: 'Note', key: 'note', width: 22 },
+  ];
+  ws.columns = cols.map(({ key, width }) => ({ key, width }));
+  const longDate = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  ws.mergeCells(1, 1, 1, cols.length);
+  ws.getCell(1, 1).value = `Visitor register: ${siteName}`;
+  ws.getCell(1, 1).font = { bold: true, size: 14 };
+  ws.mergeCells(2, 1, 2, cols.length);
+  const inside = rows.filter((r) => r.stillInside).length;
+  ws.getCell(2, 1).value = `${longDate} · ${rows.length} people · ${inside} still inside · ID numbers shown as last 4 digits only`;
+  ws.getCell(2, 1).font = { color: { argb: 'FF5B6470' } };
+  const header = ws.getRow(4);
+  cols.forEach((c, i) => { header.getCell(i + 1).value = c.header; });
+  header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  header.alignment = { vertical: 'middle', wrapText: true };
+  header.height = 30;
+  header.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111418' } }; });
+
+  const time = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: timezone }) : '');
+  rows.forEach((r, i) => {
+    // Every value is written as plain text or a number, never as a formula
+    const row = ws.addRow({
+      in: time(r.checkedInAt),
+      out: r.stillInside ? 'Inside' : time(r.checkedOutAt),
+      mins: r.minutesInside,
+      name: r.fullName,
+      idType: r.idType === 'OMANG' ? 'Omang' : r.idType === 'PASSPORT' ? 'Passport' : 'Permit',
+      last4: r.idLast4,
+      nat: r.nationality || '',
+      reason: r.reason,
+      ticket: r.ticketNo || '',
+      status: r.ticketStatus || '',
+      method: r.method,
+      note: [r.autoClosed ? 'Did not scan out' : '', r.reasonAddedBy ? `Reason added by ${r.reasonAddedBy}` : ''].filter(Boolean).join('; '),
+    });
+    row.getCell('last4').numFmt = '@';
+    if (i % 2 === 1) row.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } }; });
+    if (r.reason === 'Not given') row.getCell('reason').font = { color: { argb: 'FF9A5B00' } };
+    if (r.stillInside) row.getCell('out').font = { color: { argb: 'FF1E7F4F' }, bold: true };
+  });
+  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: cols.length } };
+  return wb.xlsx.writeBuffer();
+}
+
+// GET /api/sites/:id/register?date=YYYY-MM-DD[&format=csv|xlsx] — reception: today; admins: any day
 reportsRouter.get(
   '/sites/:id/register',
   allow({ staff: FRONT_DESK }),
@@ -131,9 +200,16 @@ reportsRouter.get(
     assertSiteAccess(req, siteId);
     const date = await resolveDate(req, { anyDate: ADMINS.includes(req.staff.role) });
     const rows = await registerRows(siteId, date);
-    const csv = req.query.format === 'csv';
-    await audit(pool, req, { action: csv ? 'EXPORT_REGISTER' : 'VIEW_REGISTER', entity: 'sites', entityId: siteId, details: { date, count: rows.length } });
-    if (csv) {
+    const format = ['csv', 'xlsx'].includes(req.query.format) ? req.query.format : 'json';
+    await audit(pool, req, { action: format === 'json' ? 'VIEW_REGISTER' : 'EXPORT_REGISTER', entity: 'sites', entityId: siteId, details: { date, count: rows.length, format } });
+    if (format === 'xlsx') {
+      const site = await pool.query('SELECT name FROM sites WHERE id = $1', [siteId]);
+      const buf = await toXlsx(rows, { siteName: site.rows[0]?.name || `Site ${siteId}`, date, timezone: config.timezone });
+      res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.set('Content-Disposition', `attachment; filename="visitor-register-site${siteId}-${date}.xlsx"`);
+      return res.send(Buffer.from(buf));
+    }
+    if (format === 'csv') {
       res.set('Content-Type', 'text/csv; charset=utf-8');
       res.set('Content-Disposition', `attachment; filename="visitor-register-site${siteId}-${date}.csv"`);
       return res.send(`﻿${toCsv(rows, config.timezone)}`); // BOM so Excel reads UTF-8 names correctly

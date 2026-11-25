@@ -46,7 +46,12 @@
           : [time(r.checkedOutAt), r.autoClosed ? h('span', { class: 'pill auto', title: 'Did not scan out; closed at end of day' }, ' auto') : null]),
         h('td', {}, r.fullName),
         h('td', { class: 'muted' }, idText(r)),
-        h('td', {}, r.kind === 'visitor' ? [h('span', { class: 'pill visitor' }, 'Visitor'), ' ', r.reason.replace(/^Visiting: /, '')] : r.reason),
+        h('td', {},
+          r.kind === 'visitor' ? [h('span', { class: 'pill visitor' }, 'Visitor'), ' ', r.reason.replace(/^Visiting: /, '')]
+            : r.kind === 'unknown' ? [h('span', { class: 'muted' }, 'Not given '),
+              r.stillInside && view.register.date === todayLocal() ? h('button', { class: 'btn tiny', type: 'button', onclick: () => openReason(r) }, 'Add reason') : null]
+              : r.reason,
+          r.reasonAddedBy ? h('span', { class: 'added-by' }, `Added by ${r.reasonAddedBy}`) : null),
         h('td', {}, r.ticketNo ? h('span', { class: 'tno' }, r.ticketNo) : '–'),
         h('td', { class: 'num' }, String(r.minutesInside)),
       )) : [h('tr', { class: 'empty' }, h('td', { colspan: 7 }, q ? 'No match' : 'Nobody signed in on this day'))]),
@@ -55,18 +60,20 @@
 
   $('reg-search').addEventListener('input', () => view.register && renderRegister());
   $('reg-date').addEventListener('change', (e) => { view.regDate = e.target.value; loadRegister(); });
-  $('reg-csv').addEventListener('click', async () => {
+  $('reg-csv').addEventListener('click', () => download('csv'));
+  $('reg-xlsx').addEventListener('click', () => download('xlsx'));
+  async function download(format) {
     const { state, toast } = app();
     try {
       // Fetch with the login token, then hand the file to the browser
-      const res = await fetch(`/api/sites/${state.siteId}/register?date=${view.regDate}&format=csv`, {
+      const res = await fetch(`/api/sites/${state.siteId}/register?date=${view.regDate}&format=${format}`, {
         headers: { authorization: `Bearer ${state.token}` },
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Download failed');
       const blob = await res.blob();
       const a = Object.assign(document.createElement('a'), {
         href: URL.createObjectURL(blob),
-        download: `visitor-register-${view.regDate}.csv`,
+        download: `visitor-register-${view.regDate}.${format}`,
       });
       document.body.append(a);
       a.click();
@@ -75,7 +82,44 @@
     } catch (err) {
       toast(err.message);
     }
-  });
+  }
+
+  // ---------- Add reason (reception fills in a missing reason) ----------
+  const choices = { services: null, offices: null };
+  async function openReason(r) {
+    const { api, state, h, toast } = app();
+    try {
+      choices.services = choices.services || await api('/api/service-types');
+      choices.offices = await api(`/api/sites/${state.siteId}/departments`);
+    } catch (err) { toast(err.message); return; }
+    $('reason-who').textContent = `${r.fullName} · checked in at ${app().time(r.checkedInAt)}`;
+    $('reason-error').textContent = '';
+    $('reason-host').value = '';
+    const pick = async (fn) => {
+      for (const b of document.querySelectorAll('#reason-dialog .choice-grid button')) b.disabled = true;
+      try {
+        await fn();
+        closeReason();
+        await loadRegister();
+      } catch (err) {
+        $('reason-error').textContent = err.message;
+        for (const b of document.querySelectorAll('#reason-dialog .choice-grid button')) b.disabled = false;
+      }
+    };
+    $('reason-services').replaceChildren(...choices.services.map((s) => h('button', { type: 'button', onclick: () => pick(async () => {
+      const t = await api(`/api/visits/${r.visitId}/ticket`, { method: 'POST', body: { serviceTypeId: s.id } });
+      toast(`${r.fullName} queued: ticket ${t.ticketNo}`);
+    }) }, h('span', { class: 'prefix' }, s.prefix), s.name)));
+    $('reason-offices').replaceChildren(...choices.offices.map((d) => h('button', { type: 'button', onclick: () => pick(async () => {
+      await api(`/api/visits/${r.visitId}/purpose`, { method: 'POST', body: { departmentId: d.id, hostName: $('reason-host').value.trim() || undefined } });
+      toast(`${r.fullName}: visiting ${d.name}`);
+    }) }, d.name)));
+    $('reason-dialog').hidden = false;
+  }
+  function closeReason() { $('reason-dialog').hidden = true; }
+  $('reason-cancel').addEventListener('click', closeReason);
+  $('reason-dialog').addEventListener('click', (e) => { if (e.target.id === 'reason-dialog') closeReason(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('reason-dialog').hidden) closeReason(); });
 
   // ---------- Daily report ----------
   async function loadReport() {

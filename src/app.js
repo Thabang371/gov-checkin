@@ -14,6 +14,7 @@ import { auditRouter } from './routes/audit.js';
 import { stationsRouter } from './routes/stations.js';
 import { queueRouter } from './routes/queue.js';
 import { reportsRouter } from './routes/reports.js';
+import { publicRouter } from './routes/public.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api', stationsRouter); // /api/stations/me, /api/service-types, /api/visits/:id/ticket
   app.use('/api', queueRouter); // desks, queue, call-next, tickets, display, live events
   app.use('/api', reportsRouter); // departments, visitor purpose, visitor register, daily report
+  app.use('/api/public', publicRouter); // citizen online booking (no staff login)
 
   // Web check-in station (webcam or USB QR scanner): open /station on the entrance laptop/tablet
   app.get('/vendor/jsQR.js', (req, res) => res.sendFile(jsqrFile));
@@ -45,6 +47,7 @@ export function createApp() {
   app.use('/staff', express.static(path.join(here, '..', 'public', 'staff')));   // staff dashboard
   app.use('/screen', express.static(path.join(here, '..', 'public', 'screen'))); // waiting-area display
   app.use('/shared', express.static(path.join(here, '..', 'public', 'shared')));
+  app.use('/book', express.static(path.join(here, '..', 'public', 'book'))); // citizens book appointments
   app.get('/', (req, res) => res.redirect('/station/'));
 
   app.use((req, res) => res.status(404).json({ error: 'Not found' }));

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book an appointment</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="book.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">Book an appointment</div>
+      <div class="sub">Omang and passport services · demo</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Step 1: confirm who you are -->
+    <section id="s-verify" class="card" hidden>
+      <h1>First, confirm who you are</h1>
+      <p class="muted">We check your details against the national register. Nothing is shared.</p>
+      <form id="verify-form" novalidate>
+        <fieldset class="seg" aria-label="ID type">
+          <label><input type="radio" name="idType" value="OMANG" checked><span>Omang</span></label>
+          <label><input type="radio" name="idType" value="PASSPORT"><span>Passport</span></label>
+        </fieldset>
+        <label for="id-number" id="id-label">Omang number</label>
+        <input id="id-number" inputmode="numeric" autocomplete="off" maxlength="12" required>
+        <label for="dob">Date of birth</label>
+        <input id="dob" type="date" required>
+        <button type="submit" class="btn primary">Continue</button>
+        <p id="verify-error" class="error" role="alert"></p>
+      </form>
+      <p class="demo-note">Demo: use an ID number and date of birth from the mock ID cards.</p>
+    </section>
+
+    <!-- Step 2: my bookings -->
+    <section id="s-home" hidden>
+      <h1 id="hello"></h1>
+      <div id="my-bookings"></div>
+      <button type="button" class="btn primary" id="new-booking">Book a new appointment</button>
+      <button type="button" class="btn link" id="sign-out">Not you? Start again</button>
+    </section>
+
+    <!-- Step 3: choose -->
+    <section id="s-book" class="card" hidden>
+      <button type="button" class="back" id="back-home">← Back</button>
+      <h1>Choose your appointment</h1>
+      <label for="site">Office</label>
+      <select id="site"></select>
+      <label for="service">Service</label>
+      <select id="service"></select>
+      <div class="label">Day</div>
+      <div class="days" id="days"></div>
+      <div class="label">Time <span class="muted small" id="slot-note"></span></div>
+      <div class="slots" id="slots"><p class="muted small">Pick a day to see free times.</p></div>
+      <div class="summary" id="summary" hidden></div>
+      <button type="button" class="btn primary" id="confirm" disabled>Confirm booking</button>
+      <p id="book-error" class="error" role="alert"></p>
+    </section>
+
+    <!-- Step 4: done -->
+    <section id="s-done" class="card done" hidden>
+      <div class="tick" aria-hidden="true">✓</div>
+      <h1>You're booked</h1>
+      <div class="ref-label">Booking reference</div>
+      <div class="ref" id="done-ref"></div>
+      <div class="detail" id="done-detail"></div>
+      <ol class="steps">
+        <li>Arrive about 10 minutes early.</li>
+        <li>Scan your <span id="done-idword">Omang</span> at the entrance.</li>
+        <li>You'll get a priority number straight away. No forms to fill in.</li>
+      </ol>
+      <button type="button" class="btn primary" id="done-home">See my bookings</button>
+    </section>
+  </main>
+
+  <script src="book.js"></script>
+</body>
+</html>
